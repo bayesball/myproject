@@ -2,17 +2,15 @@
 model {
 for(i in 1:N){
 mu.y[i] <- alpha[j[i]]  + beta[j[i]] * x [i]
-y[i] ~ dnorm(mu.y[i], tau[1])
+y[i] ~ dnorm(mu.y[i], tau)
 }
-for (p in 1:J){
-alpha[p] ~ dnorm(mu.alpha, tau[2])
-beta[p] ~ dnorm(mu.beta, tau[3])
+for (j in 1:J){
+alpha[j] <- B[j, 1]
+beta[j] <- B[j, 2]
+B[j, 1:2] ~ dmnorm(mu.beta[], Tau.B[,])
 }
-mu.alpha ~ dnorm(0, .0001)
-mu.beta ~ dnorm(0, .0001)
-for(p in 1:3){
-tau[p] <- pow(sigma[p], -2)
-sigma[p] ~ dunif(0, 100)
-}
+tau ~ dgamma(0.001, 0.001)
+mu.beta[1:2] ~ dmnorm(mean[1:2],prec[1:2 ,1:2])
+Tau.B[1:2 , 1:2] ~ dwish(Omega[1:2 ,1:2 ], 2)
 }
 

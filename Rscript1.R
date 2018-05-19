@@ -3,10 +3,10 @@ sc2017 <- read_csv("data/sc2017ip.csv")
 
 sc2017 %>% filter(type == "X") %>% 
   mutate(HIT = ifelse(events %in%
-             c("single", "double", "triple", "home_run"),
+                        c("single", "double", "triple", "home_run"),
                       1, 0),
          phi = ifelse(stand == "L", 
-               - plate_x, plate_x)) -> sc2017_ip
+                      - plate_x, plate_x)) -> sc2017_ip
 
 # only look at hitters with at least 200 balls in play
 
@@ -48,8 +48,8 @@ ggplot(Individual_est, aes(beta0, beta1)) +
 # data work -- work with a sample of players
 
 Batters <- unique(sc_regular$batter)
-set.seed(12356)
-N_batters <- 100  # here we have 50 players
+set.seed(693)
+N_batters <- 50  # here we have 50 players
 Batters_s <- sample(Batters, size=N_batters, replace=TRUE)
 sc_sample <- filter(sc_regular, 
                     batter %in% Batters_s)
@@ -69,10 +69,6 @@ for(k in 1:J){
 y <- sc_sample$launch_speed
 x <- sc_sample$dist
 
-mean <- c(0, 0)
-Omega <- diag(c(.1, .1))
-prec <- diag(c(1.0E-6, 1.0E-6))
-
 # start JAGS
 
 library(rjags)
@@ -80,45 +76,43 @@ library(rjags)
 modelString = "
 model {
 for(i in 1:N){
-mu.y[i] <- alpha[j[i]]  + beta[j[i]] * x [i]
-y[i] ~ dnorm(mu.y[i], tau)
+mu.y[i] <- alpha[j[i]]+ beta[j[i]] * x [i]
+y[i] ~ dnorm(mu.y[i], tau[1])
 }
-for (j in 1:J){
-alpha[j] <- B[j, 1]
-beta[j] <- B[j, 2]
-B[j, 1:2] ~ dmnorm(mu.beta[], Tau.B[,])
+for (p in 1:J){
+alpha[p] ~ dnorm(mu.alpha, tau[2])
+beta[p] ~ dnorm(mu.beta, tau[3])
 }
-tau ~ dgamma(0.001, 0.001)
-mu.beta[1:2] ~ dmnorm(mean[1:2],prec[1:2 ,1:2])
-Tau.B[1:2 , 1:2] ~ dwish(Omega[1:2 ,1:2 ], 2)
+mu.alpha ~ dnorm(0, .0001)
+mu.beta ~ dnorm(0, .0001)
+for(p in 1:3){
+tau[p] <- pow(sigma[p], -2)
+sigma[p] ~ dunif(0, 100)
+}
 }
 "
 writeLines(modelString, con="normalreffmodel.bug")
 
 jags <- jags.model('normalreffmodel.bug',
-                   data = list('y' = y, "j" = j, 
-                               'x' = x,
-                               "N" = N, "J" = J,
-                               "mean" = mean,
-                               "prec" = prec,
-                               "Omega" = Omega),
+                   data = list('y' = y, "j" = j, 'x' = x,
+                               "N" = N, "J" = J),
                    n.chains = 1,
                    n.adapt = 100)
 
 update(jags, 5000)
 
 posterior <- coda.samples(jags,
-                          c("alpha", "beta", "tau",
-                            "mu.beta", "Tau.B"),
+                          c("sigma", "alpha", "beta",
+                            "mu.alpha", "mu.beta"),
                           n.iter=10000,
                           progress.bar="gui")
 
 S <- summary(posterior)
 
 Estimates <- data.frame(Batter = Batters_s,
-             A_bayes = S$statistics[4 + 1:N_batters, 1],
-             B_bayes = S$statistics[4 + (N_batters + 1):
-                               (2 * N_batters), 1])
+                        A_bayes = S$statistics[1:N_batters, 1],
+                        B_bayes = S$statistics[(N_batters + 1):
+                                                 (2 * N_batters), 1])
 
 dall <- merge(Estimates, Individual_est, by="Batter")
 
@@ -132,9 +126,8 @@ library(bayesplot)
 mcmc_areas(posterior,
            pars= c("sigma[2]", "sigma[3]"))
 mcmc_intervals(posterior,
-               regex_pars = c("beta\\[[1-2]"))
-mcmc_trace(posterior, pars = "Tau.B[1,1]")
+               regex_pars = c("alpha\\[[1-2]"))
+mcmc_trace(posterior, pars = "sigma[3]")
 mcmc_trace(posterior, pars = "sigma[2]")
 mcmc_trace(posterior, pars = "sigma[1]")
 mcmc_trace(posterior, pars = c("mu.alpha", "mu.beta"))
-
