@@ -48,8 +48,8 @@ ggplot(Individual_est, aes(beta0, beta1)) +
 # data work -- work with a sample of players
 
 Batters <- unique(sc_regular$batter)
-set.seed(12356)
-N_batters <- 100  # here we have 50 players
+set.seed(693)
+N_batters <- 50  # here we have 50 players
 Batters_s <- sample(Batters, size=N_batters, replace=TRUE)
 sc_sample <- filter(sc_regular, 
                     batter %in% Batters_s)
@@ -122,9 +122,18 @@ Estimates <- data.frame(Batter = Batters_s,
 
 dall <- merge(Estimates, Individual_est, by="Batter")
 
+bb_data <- sc_sample %>% group_by(batter) %>% 
+  summarize(N = n())
+
+dall <- inner_join(dall, bb_data, 
+            by=c("Batter" = "batter"))
+
 ggplot(dall, aes(beta0, beta1)) +
   geom_point() +
   geom_point(aes(A_bayes, B_bayes), color="red")
+
+ggplot(dall, aes(N, beta0)) + geom_point() +
+  geom_point(aes(N, A_bayes), color = "red")
 
 # some diagnostics ...
 
